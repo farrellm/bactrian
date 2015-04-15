@@ -12,8 +12,8 @@
   just2 [t/AnyInteger])
 
 
-(t/ann t AnyMaybe)
-(def t (just :val 8))
+(t/ann t1 AnyMaybe)
+(def t1 (just :val 8))
 
 (t/ann tst [AnyMaybe -> t/AnyInteger])
 (defn tst [j]
