@@ -1,63 +1,65 @@
 (ns bactrian.types
-  (:refer-clojure :exclude [defprotocol fn])
   (:require [clojure.core.typed :as t]
             [clojure.string :as s]))
 
-#_((t/ann-protocol [[x :variance :covariant]] Maybe)
-   (t/defprotocol Maybe)
-
-   (t/ann-record [[x :variance :covariant]] Nothing [+ :- t/Kw])
-   (defrecord Nothing [+]
-     Maybe)
-
-   (t/ann-record [[x :variance :covariant]] Just [+ :- t/Kw, value :- x])
-   (defrecord Just [+ value]
-     Maybe))
-
-;; (t/ann kw->sym [t/Kw -> t/Sym])
-;; (defn- kw->sym [kw]
-;;   (-> kw name symbol))
-
 (t/tc-ignore
- (defn gen-defs [type-name [name args]]
+ (defn gen-defs-named [type-name [name args]]
    (let [rec-name (-> name str s/capitalize symbol)
-         arg-types (into [] (concat ['+ :- 't/Kw] args))
-         arg-names (map first (partition 3 args))]
-     `((t/ann-record ~rec-name ~arg-types)
-       (defrecord ~rec-name
-           ~(into [] (concat ['+] arg-names))
-         ~type-name))))
+         sup-args (vec (concat [['++ :- 't/Kw]] args))
+         arg-names (map first args)
+         arg-types (map last args)
+         any (symbol (str "Any" type-name))]
+     `((t/ann-record ~rec-name
+                     [~name :- (t/HMap :mandatory ~(zipmap (map keyword arg-names)
+                                                           arg-types))])
+       (defrecord ~rec-name [~name])
+       (t/ann ~(vary-meta name assoc :no-check true)
+              [ & :mandatory ~(zipmap (map keyword arg-names) arg-types) ~'-> ~any ])
+       (defn ~name [ & {:keys [~@arg-names]} ]
+         (new ~rec-name ~(zipmap (map keyword arg-names) arg-names))))))
 
- (defn defadt* [type-name body]
-   (let [defs (mapcat (partial gen-defs type-name)
-                      (partition 2 body))]
-     `(do (t/ann-protocol ~type-name)
+ (defn gen-defs-pos [type-name [name args]]
+   (let [rec-name (-> name str s/capitalize symbol)
+         f-args (map #(symbol (str "a_" %2)) args (range))
+         any (symbol (str "Any" type-name))]
+     `((t/ann-record ~rec-name [~'values :- (t/HVec [ ~@args ])])
+       (defrecord ~rec-name [~'values])
+       (t/ann ~(vary-meta name assoc :no-check true) [ ~@args ~'-> ~any ])
+       (defn ~name [ ~@f-args ] (new ~rec-name [~@f-args])))))
+
+ (defn adt-named [type-name def-pairs]
+   (let [defs (mapcat (partial gen-defs-named type-name)
+                      def-pairs)
+         types (mapcat (fn [[name args]]
+                         (let [arg-names (map first args)
+                               arg-types (map last args)]
+                           `([~(keyword name) (t/HMap :mandatory ~(zipmap (map keyword arg-names)
+                                                                          arg-types))])))
+                       def-pairs)]
+     `(do (t/defalias ~(symbol (str "Any" type-name))
+            (t/HMap :mandatory ~(apply hash-map (apply concat types))))
           (t/defprotocol ~type-name)
           ~@defs)))
 
- (defmacro defadt [name & body]
-   (defadt* name body)))
+ (defn make-type-pairs [[rec-name rec-args]]
+   [(-> rec-name name keyword) `(t/HVec ~rec-args)])
 
+ (defn adt-pos [type-name def-pairs]
+   (let [defs (mapcat (partial gen-defs-pos type-name)
+                      def-pairs)]
+     `(do (t/defprotocol ~type-name)
+          (t/defalias ~(symbol (str "Any" type-name))
+            (t/HMap :mandatory ~(apply hash-map (apply concat (map make-type-pairs def-pairs)))))
+          ~@defs)))
 
-#_(defadt* 'Maybe '(nothing []
-                    just [value :- t/Any]))
-
-#_(defadt [[x :variance :covariant]] Maybe
-  nothing []
-  just [value x])
-
-#_(defadt Maybe
-  nothig []n
-  just [:value :- t/AnyInteger])
-
-#_(defprotocol Tree)
-#_(defrecord Leaf []
-#_  Tree)
-#_(defrecord Node [value branch1 branch2]
-  Tree)
-
-#_(ann-record [x :- Any] Node [value :- x
-                             branch1 :- Tree
-                             branch2 :- Tree])
-
-;; (Node. 8 0 0)
+ (defmacro defadt [type-name & body]
+   (let [pairs (partition 2 body)]
+     (if (->> (map second pairs)
+              (apply concat)
+              (filter keyword?)
+              empty?)
+       (adt-pos type-name pairs)
+       (let [named-pairs (map (clojure.core/fn [[c-name c-args]]
+                                [c-name (map vec (partition 3 c-args))])
+                              pairs)]
+         (adt-named type-name named-pairs))))))
