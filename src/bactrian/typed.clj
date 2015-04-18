@@ -1,4 +1,4 @@
-(ns bactrian.types
+(ns bactrian.typed
   (:require [clojure.core.typed :as t]
             [clojure.string :as s]))
 

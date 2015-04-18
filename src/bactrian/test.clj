@@ -1,5 +1,5 @@
 (ns bactrian.test
-  (:require [bactrian.types :refer :all]
+  (:require [bactrian.typed :refer :all]
             [clojure.core.typed :as t]
             [clojure.core.match :refer [match]]))
 
