@@ -49,7 +49,7 @@
                       def-pairs)]
      `(do (t/defprotocol ~type-name)
           (t/defalias ~(symbol (str "Any" type-name))
-            (t/HMap :mandatory ~(apply hash-map (apply concat (map make-type-pairs def-pairs)))))
+            (t/HMap :mandatory ~(apply hash-map (mapcat make-type-pairs def-pairs))))
           ~@defs)))
 
  (defmacro defadt [type-name & body]
