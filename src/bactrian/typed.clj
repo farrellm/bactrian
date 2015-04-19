@@ -22,8 +22,8 @@
    (let [rec-name (-> name str s/capitalize symbol)
          f-args (map #(symbol (str "a_" %2)) args (range))
          any (symbol (str "Any" type-name))]
-     `((t/ann-record ~rec-name [~'values :- (t/HVec [ ~@args ])])
-       (defrecord ~rec-name [~'values])
+     `((t/ann-record ~rec-name [~name :- (t/HVec [ ~@args ])])
+       (defrecord ~rec-name [~name])
        (t/ann ~(vary-meta name assoc :no-check true) [ ~@args ~'-> ~any ])
        (defn ~name [ ~@f-args ] (new ~rec-name [~@f-args])))))
 
