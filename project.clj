@@ -1,4 +1,4 @@
-(defproject bactrian "0.1.0"
+(defproject bactrian "0.1.1-SNAPSHOT"
   :description "ADT"
   :url "https://github.com/farrellm/bactrian"
   :license {:name "Eclipse Public License"
